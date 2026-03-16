@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.m22reader.data.M22Database
 import com.m22reader.data.dao.BookDao
+import com.m22reader.data.dao.CollectionDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -23,4 +24,7 @@ object DatabaseModule {
 
     @Provides @Singleton
     fun provideBookDao(db: M22Database): BookDao = db.bookDao()
+
+    @Provides @Singleton
+    fun provideCollectionDao(db: M22Database): CollectionDao = db.collectionDao()
 }
