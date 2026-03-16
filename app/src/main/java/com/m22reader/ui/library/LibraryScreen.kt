@@ -145,7 +145,7 @@ fun CollectionGridCard(col: Collection, onClick: () -> Unit, onFav: () -> Unit) 
             }
         }
         Spacer(Modifier.height(4.dp))
-        Text(col.title, maxLines = 2, overflow = TextOverflow.Ellipsis,
+        Text(col.name, maxLines = 2, overflow = TextOverflow.Ellipsis,
             style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
         LinearProgressIndicator(progress = { col.progressPercent / 100f },
             Modifier.fillMaxWidth().height(2.dp).padding(top = 3.dp).clip(RoundedCornerShape(1.dp)),
@@ -169,12 +169,12 @@ fun CollectionListCard(col: Collection, onClick: () -> Unit, onFav: () -> Unit) 
         Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             CollectionCover(col, Modifier.size(width = 60.dp, height = 85.dp).clip(RoundedCornerShape(8.dp)))
             Column(Modifier.weight(1f)) {
-                Text(col.title, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(col.name, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text("${col.chapterCount} capítulos", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(0.5f))
                 Spacer(Modifier.height(6.dp))
                 LinearProgressIndicator(progress = { col.progressPercent / 100f },
                     Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(2.dp)), color = MaterialTheme.colorScheme.primary)
-                Text("Cap. ${col.lastReadChapter} / ${col.chapterCount}", style = MaterialTheme.typography.labelSmall,
+                Text("Cap. ${col.lastReadChapterNumber} / ${col.chapterCount}", style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(0.45f), modifier = Modifier.padding(top = 3.dp))
             }
             IconButton(onClick = onFav) {
@@ -188,13 +188,13 @@ fun CollectionListCard(col: Collection, onClick: () -> Unit, onFav: () -> Unit) 
 @Composable
 fun CollectionCover(col: Collection, modifier: Modifier = Modifier) {
     if (col.coverPath != null) {
-        AsyncImage(model = col.coverPath, contentDescription = col.title, modifier = modifier, contentScale = ContentScale.Crop)
+        AsyncImage(model = col.coverPath, contentDescription = col.name, modifier = modifier, contentScale = ContentScale.Crop)
     } else {
-        val hue = (col.title.hashCode().and(0xFFFFFF) % 360).toFloat()
+        val hue = (col.name.hashCode().and(0xFFFFFF) % 360).toFloat()
         Box(modifier.background(Brush.linearGradient(listOf(
             Color.hsl(hue, 0.6f, 0.25f), Color.hsl((hue + 40) % 360, 0.7f, 0.4f)))),
             contentAlignment = Alignment.Center) {
-            Text(col.title.take(2).uppercase(), color = Color.White, fontWeight = FontWeight.Black, fontSize = 20.sp)
+            Text(col.name.take(2).uppercase(), color = Color.White, fontWeight = FontWeight.Black, fontSize = 20.sp)
         }
     }
 }
