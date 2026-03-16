@@ -1,8 +1,12 @@
 package com.m22reader.ui.reader
 
+import android.app.Activity
+import android.os.Build
+import android.view.WindowInsets
+import android.view.WindowInsetsController
 import android.view.WindowManager
 import androidx.compose.animation.*
-import androidx.compose.foundation.*
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -18,7 +22,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.m22reader.data.model.Book
 import com.m22reader.data.model.BookFormat
 
-// ── Entry point ───────────────────────────────────────────────────────────────
 @Composable
 fun ReaderScreen(
     bookId: Long,
@@ -26,15 +29,43 @@ fun ReaderScreen(
     vm: ReaderViewModel = hiltViewModel(),
 ) {
     val state by vm.uiState.collectAsState()
+    val context = LocalContext.current
 
     LaunchedEffect(bookId) { vm.loadBook(bookId) }
 
-    // Keep screen on
-    val context = LocalContext.current
+    // Fullscreen imersivo
     DisposableEffect(Unit) {
-        val window = (context as? android.app.Activity)?.window
+        val activity = context as? Activity
+        val window = activity?.window
         window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        onDispose { window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            window?.insetsController?.let {
+                it.hide(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
+                it.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            window?.decorView?.systemUiVisibility = (
+                android.view.View.SYSTEM_UI_FLAG_FULLSCREEN
+                or android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                or android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                or android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                or android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+            )
+        }
+
+        onDispose {
+            window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                window?.insetsController?.show(
+                    WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars()
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                window?.decorView?.systemUiVisibility = android.view.View.SYSTEM_UI_FLAG_VISIBLE
+            }
+        }
     }
 
     Box(Modifier.fillMaxSize().background(Color(0xFF0A0A0F))) {
@@ -43,28 +74,25 @@ fun ReaderScreen(
             state.error != null -> ReaderErrorScreen(state.error!!, onBack, vm::dismissError)
             state.book != null -> {
                 val book = state.book!!
-                // Dispatch to format reader
                 when (book.format) {
                     BookFormat.PDF  -> PdfReaderContent(book, state, vm::onPageChanged, vm::toggleControls)
                     BookFormat.EPUB -> EpubReaderContent(book, state, vm::onPageChanged, vm::toggleControls)
                     BookFormat.CBZ  -> CbzReaderContent(book, state, vm::onPageChanged, vm::toggleControls)
                     BookFormat.CBR  -> CbrReaderContent(book, state, vm::onPageChanged, vm::toggleControls)
                 }
-                // Overlay controls (shared across all formats)
                 ReaderControls(
-                    book        = book,
-                    state       = state,
-                    onBack      = onBack,
+                    book         = book,
+                    state        = state,
+                    onBack       = onBack,
                     onModeChange = vm::setReadingMode,
                     onBrightness = vm::setBrightness,
-                    onTap       = vm::toggleControls,
+                    onTap        = vm::toggleControls,
                 )
             }
         }
     }
 }
 
-// ── Shared overlay controls ───────────────────────────────────────────────────
 @Composable
 fun ReaderControls(
     book: Book,
@@ -81,13 +109,13 @@ fun ReaderControls(
         enter   = fadeIn() + slideInVertically { -it },
         exit    = fadeOut() + slideOutVertically { -it },
     ) {
-        // Top bar
         Box(
             Modifier.fillMaxWidth()
                 .background(androidx.compose.ui.graphics.Brush.verticalGradient(
                     listOf(Color.Black.copy(0.85f), Color.Transparent)
                 ))
-                .padding(top = 40.dp, start = 8.dp, end = 8.dp, bottom = 48.dp)
+                .statusBarsPadding()
+                .padding(start = 8.dp, end = 8.dp, bottom = 48.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onBack) {
@@ -100,7 +128,6 @@ fun ReaderControls(
                         color = Color.White.copy(0.6f), fontSize = 11.sp
                     )
                 }
-                // Reading mode picker
                 var menuOpen by remember { mutableStateOf(false) }
                 Box {
                     IconButton({ menuOpen = true }) {
@@ -124,7 +151,6 @@ fun ReaderControls(
         }
     }
 
-    // Bottom progress bar (always visible, subtle)
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
         AnimatedVisibility(
             visible = state.showControls,
@@ -136,10 +162,10 @@ fun ReaderControls(
                     .background(androidx.compose.ui.graphics.Brush.verticalGradient(
                         listOf(Color.Transparent, Color.Black.copy(0.8f))
                     ))
+                    .navigationBarsPadding()
                     .padding(horizontal = 20.dp, vertical = 16.dp)
             ) {
                 Column {
-                    // Brightness row
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                         Icon(Icons.Default.BrightnessLow, null, tint = Color.White.copy(0.6f), modifier = Modifier.size(16.dp))
                         Slider(
@@ -152,7 +178,6 @@ fun ReaderControls(
                         Icon(Icons.Default.BrightnessHigh, null, tint = Color.White.copy(0.6f), modifier = Modifier.size(16.dp))
                     }
                     Spacer(Modifier.height(4.dp))
-                    // Page progress bar
                     if (state.totalPages > 0) {
                         LinearProgressIndicator(
                             progress = { (state.currentPage + 1f) / state.totalPages },
@@ -172,7 +197,6 @@ fun ReaderControls(
     }
 }
 
-// ── Loading ───────────────────────────────────────────────────────────────────
 @Composable
 private fun ReaderLoadingScreen() {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -184,7 +208,6 @@ private fun ReaderLoadingScreen() {
     }
 }
 
-// ── Error ─────────────────────────────────────────────────────────────────────
 @Composable
 private fun ReaderErrorScreen(error: String, onBack: () -> Unit, onDismiss: () -> Unit) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
