@@ -70,5 +70,6 @@ dependencies {
     implementation("com.github.junrar:junrar:7.5.4")
     implementation("io.coil-kt:coil-compose:2.6.0")
     implementation("androidx.core:core-splashscreen:1.0.1")
+    implementation("androidx.appcompat:appcompat:1.6.1")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
