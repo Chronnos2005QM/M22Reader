@@ -1,6 +1,7 @@
 package com.m22reader.ui.reader
 
 import android.graphics.BitmapFactory
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.*
@@ -23,20 +24,19 @@ import java.util.zip.ZipFile
 
 private val IMAGE_EXTS = setOf("jpg", "jpeg", "png", "webp", "gif")
 
-/** Loads all image entry names from CBZ sorted naturally (001.jpg, 002.jpg …) */
 private fun loadCbzEntries(path: String): List<String> {
     return try {
         ZipFile(path).use { zip ->
             zip.entries().asSequence()
                 .map { it.name }
                 .filter { it.substringAfterLast('.').lowercase() in IMAGE_EXTS }
-                .sortedWith(compareBy({ it.length }, { it })) // natural order
+                .sortedWith(compareBy({ it.length }, { it }))
                 .toList()
         }
     } catch (e: Exception) { emptyList() }
 }
 
-private fun loadCbzPage(path: String, entryName: String): androidx.compose.ui.graphics.ImageBitmap? {
+private fun loadCbzPage(path: String, entryName: String): ImageBitmap? {
     return try {
         ZipFile(path).use { zip ->
             val entry = zip.getEntry(entryName) ?: return null
@@ -47,6 +47,7 @@ private fun loadCbzPage(path: String, entryName: String): androidx.compose.ui.gr
     } catch (e: Exception) { null }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun CbzReaderContent(
     book: Book,
@@ -73,7 +74,7 @@ fun CbzReaderContent(
     }
 }
 
-// ── Vertical scroll ───────────────────────────────────────────────────────────
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ComicVerticalScroll(
     filePath: String,
@@ -102,7 +103,7 @@ fun ComicVerticalScroll(
     }
 }
 
-// ── Horizontal pager ──────────────────────────────────────────────────────────
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ComicHorizontalPager(
     filePath: String,
@@ -127,7 +128,6 @@ fun ComicHorizontalPager(
     }
 }
 
-// ── Single page image (lazy-loaded) ──────────────────────────────────────────
 @Composable
 fun ComicPageImage(
     filePath: String,
@@ -155,7 +155,6 @@ fun ComicPageImage(
     } ?: Box(modifier.aspectRatio(0.7f).background(Color(0xFF111118)))
 }
 
-// Exposed for CbrReaderContent to reuse
 internal fun loadCbrPage(path: String, entryName: String): ImageBitmap? {
     return try {
         val archive = com.github.junrar.Archive(File(path))

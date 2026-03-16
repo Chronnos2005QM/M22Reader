@@ -3,6 +3,7 @@ package com.m22reader.ui.reader
 import android.graphics.Bitmap
 import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.*
@@ -17,7 +18,6 @@ import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.m22reader.data.model.Book
 import kotlinx.coroutines.*
@@ -30,11 +30,9 @@ fun PdfReaderContent(
     onPageChanged: (Int, Int) -> Unit,
     onTap: () -> Unit,
 ) {
-    val context = LocalContext.current
     var renderer by remember { mutableStateOf<PdfRenderer?>(null) }
     var pageCount by remember { mutableStateOf(0) }
 
-    // Open renderer
     LaunchedEffect(book.filePath) {
         withContext(Dispatchers.IO) {
             try {
@@ -42,7 +40,7 @@ fun PdfReaderContent(
                 renderer = PdfRenderer(fd)
                 pageCount = renderer!!.pageCount
                 onPageChanged(book.lastReadPage, pageCount)
-            } catch (e: Exception) { /* handled by ReaderScreen error state */ }
+            } catch (_: Exception) {}
         }
     }
 
@@ -56,22 +54,15 @@ fun PdfReaderContent(
     }
 }
 
-// ── Vertical scroll (Manhwa / Webtoon) ───────────────────────────────────────
 @Composable
 private fun PdfVerticalScroll(
-    renderer: PdfRenderer,
-    pageCount: Int,
-    state: ReaderUiState,
-    onPageChanged: (Int, Int) -> Unit,
-    onTap: () -> Unit,
+    renderer: PdfRenderer, pageCount: Int, state: ReaderUiState,
+    onPageChanged: (Int, Int) -> Unit, onTap: () -> Unit,
 ) {
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = state.currentPage)
     val gap = if (state.readingMode == ReadingMode.WEBTOON) 0.dp else 4.dp
 
-    // Track current page
-    LaunchedEffect(listState.firstVisibleItemIndex) {
-        onPageChanged(listState.firstVisibleItemIndex, pageCount)
-    }
+    LaunchedEffect(listState.firstVisibleItemIndex) { onPageChanged(listState.firstVisibleItemIndex, pageCount) }
 
     LazyColumn(
         state = listState,
@@ -79,28 +70,21 @@ private fun PdfVerticalScroll(
         verticalArrangement = Arrangement.spacedBy(gap),
         contentPadding = PaddingValues(bottom = 80.dp),
     ) {
-        items(pageCount) { index ->
-            PdfPageImage(renderer, index, Modifier.fillMaxWidth())
-        }
+        items(pageCount) { index -> PdfPageImage(renderer, index, Modifier.fillMaxWidth()) }
     }
 }
 
-// ── Horizontal pager (Manga) ──────────────────────────────────────────────────
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun PdfHorizontalPager(
-    renderer: PdfRenderer,
-    pageCount: Int,
-    state: ReaderUiState,
-    onPageChanged: (Int, Int) -> Unit,
-    onTap: () -> Unit,
+    renderer: PdfRenderer, pageCount: Int, state: ReaderUiState,
+    onPageChanged: (Int, Int) -> Unit, onTap: () -> Unit,
 ) {
     val pagerState = rememberPagerState(initialPage = state.currentPage) { pageCount }
-
     LaunchedEffect(pagerState.currentPage) { onPageChanged(pagerState.currentPage, pageCount) }
 
     HorizontalPager(
-        state = pagerState,
-        reverseLayout = true, // Right-to-left for manga
+        state = pagerState, reverseLayout = true,
         modifier = Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures { onTap() } },
     ) { index ->
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -109,7 +93,6 @@ private fun PdfHorizontalPager(
     }
 }
 
-// ── Single PDF page rendered to Bitmap ───────────────────────────────────────
 @Composable
 private fun PdfPageImage(renderer: PdfRenderer, pageIndex: Int, modifier: Modifier = Modifier) {
     var bitmap by remember(pageIndex) { mutableStateOf<Bitmap?>(null) }
@@ -118,12 +101,8 @@ private fun PdfPageImage(renderer: PdfRenderer, pageIndex: Int, modifier: Modifi
         withContext(Dispatchers.Default) {
             try {
                 val page = renderer.openPage(pageIndex)
-                val scale = 2f // 2x for sharpness on high-density screens
-                val bmp = Bitmap.createBitmap(
-                    (page.width * scale).toInt(),
-                    (page.height * scale).toInt(),
-                    Bitmap.Config.ARGB_8888
-                )
+                val scale = 2f
+                val bmp = Bitmap.createBitmap((page.width * scale).toInt(), (page.height * scale).toInt(), Bitmap.Config.ARGB_8888)
                 bmp.eraseColor(android.graphics.Color.WHITE)
                 page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
                 page.close()
@@ -133,11 +112,7 @@ private fun PdfPageImage(renderer: PdfRenderer, pageIndex: Int, modifier: Modifi
     }
 
     bitmap?.let {
-        Image(
-            bitmap = it.asImageBitmap(),
-            contentDescription = "Página ${pageIndex + 1}",
-            modifier = modifier,
-            contentScale = ContentScale.FillWidth,
-        )
+        Image(bitmap = it.asImageBitmap(), contentDescription = "Página ${pageIndex + 1}",
+            modifier = modifier, contentScale = ContentScale.FillWidth)
     } ?: Box(modifier.aspectRatio(0.7f).background(Color(0xFF111118)))
 }

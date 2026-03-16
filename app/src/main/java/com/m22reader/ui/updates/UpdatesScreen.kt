@@ -1,5 +1,6 @@
 package com.m22reader.ui.updates
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -20,7 +21,7 @@ import java.util.*
 
 @Composable
 fun UpdatesScreen(onBookClick: (Long) -> Unit, vm: UpdatesViewModel = hiltViewModel()) {
-    val recent by vm.recentlyAdded.collectAsState()
+    val recent by vm.recentlyAdded.collectAsState(initial = emptyList())
 
     LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
@@ -49,7 +50,6 @@ private fun UpdateCard(book: Book, onClick: () -> Unit) {
                 Spacer(Modifier.height(6.dp))
                 FormatBadge(book.format.name)
             }
-            // Relative date badge
             Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.primary.copy(0.12f)) {
                 Text(
                     relativeDate(book.addedAt),

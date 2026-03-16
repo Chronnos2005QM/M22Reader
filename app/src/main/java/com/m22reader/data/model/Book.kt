@@ -20,15 +20,14 @@ data class Book(
     val isFavorite: Boolean = false,
     val addedAt: Date = Date(),
     val lastReadAt: Date? = null,
-    val tags: String = "", // comma-separated
-)
+    val tags: String = "",
+) {
+    val progressPercent: Int
+        get() = if (totalChapters > 0) ((lastReadChapter.toFloat() / totalChapters) * 100).toInt() else 0
 
-// Computed helpers
-val Book.progressPercent: Int
-    get() = if (totalChapters > 0) ((lastReadChapter.toFloat() / totalChapters) * 100).toInt() else 0
+    val isCompleted: Boolean
+        get() = totalChapters > 0 && lastReadChapter >= totalChapters
 
-val Book.isCompleted: Boolean
-    get() = totalChapters > 0 && lastReadChapter >= totalChapters
-
-val Book.tagList: List<String>
-    get() = tags.split(",").filter { it.isNotBlank() }
+    val tagList: List<String>
+        get() = tags.split(",").filter { it.isNotBlank() }
+}

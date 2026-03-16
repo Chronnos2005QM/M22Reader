@@ -35,10 +35,10 @@ class LibraryViewModel @Inject constructor(
         }
         .combine(_sortOrder) { books, sort ->
             when (sort) {
-                SortOrder.TITLE       -> books.sortedBy { it.title }
-                SortOrder.LAST_READ   -> books.sortedByDescending { it.lastReadAt }
-                SortOrder.PROGRESS    -> books.sortedByDescending { it.progressPercent }
-                SortOrder.DATE_ADDED  -> books // already sorted by Room query
+                SortOrder.TITLE      -> books.sortedBy { it.title }
+                SortOrder.LAST_READ  -> books.sortedByDescending { it.lastReadAt }
+                SortOrder.PROGRESS   -> books.sortedByDescending { it.progressPercent }
+                SortOrder.DATE_ADDED -> books
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
