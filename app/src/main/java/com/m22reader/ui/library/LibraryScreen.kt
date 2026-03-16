@@ -1,10 +1,11 @@
 package com.m22reader.ui.library
 
-import androidx.compose.animation.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.lazy.grid.*
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -24,8 +25,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.m22reader.data.model.Book
 import com.m22reader.data.model.Collection
+import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun LibraryScreen(
     onBookClick: (Long) -> Unit,
@@ -37,56 +39,63 @@ fun LibraryScreen(
     val query       by viewModel.searchQuery.collectAsState()
     val viewMode    by viewModel.viewMode.collectAsState()
     val sortOrder   by viewModel.sortOrder.collectAsState()
-    val activeTab   by viewModel.activeTab.collectAsState()
+    val isScanning  by viewModel.isScanning.collectAsState()
+
+    val pagerState = rememberPagerState(pageCount = { 2 })
+    val scope = rememberCoroutineScope()
 
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+
+        // ── Tabs com indicador sincronizado ao pager ───────────────
         TabRow(
-            selectedTabIndex = activeTab.ordinal,
+            selectedTabIndex = pagerState.currentPage,
             containerColor = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.primary,
         ) {
             Tab(
-                selected = activeTab == LibraryTab.COLLECTIONS,
-                onClick = { viewModel.setActiveTab(LibraryTab.COLLECTIONS) },
-                text = { Text("Coleções (${collections.size})", fontWeight = FontWeight.Bold) },
-                icon = { Icon(Icons.Default.FolderOpen, null, Modifier.size(16.dp)) }
+                selected = pagerState.currentPage == 0,
+                onClick = { scope.launch { pagerState.animateScrollToPage(0) } },
+                text = {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Icon(Icons.Default.FolderOpen, null, Modifier.size(14.dp))
+                        Text("Coleções (${collections.size})", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        if (isScanning) CircularProgressIndicator(Modifier.size(10.dp), strokeWidth = 1.5.dp)
+                    }
+                }
             )
             Tab(
-                selected = activeTab == LibraryTab.FILES,
-                onClick = { viewModel.setActiveTab(LibraryTab.FILES) },
-                text = { Text("Ficheiros (${books.size})", fontWeight = FontWeight.Bold) },
-                icon = { Icon(Icons.Default.InsertDriveFile, null, Modifier.size(16.dp)) }
+                selected = pagerState.currentPage == 1,
+                onClick = { scope.launch { pagerState.animateScrollToPage(1) } },
+                text = {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Icon(Icons.Default.InsertDriveFile, null, Modifier.size(14.dp))
+                        Text("Ficheiros (${books.size})", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                }
             )
         }
 
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
+        // ── Barra de pesquisa ────────────────────────────────────
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
-                value = query,
-                onValueChange = viewModel::setSearchQuery,
+                value = query, onValueChange = viewModel::setSearchQuery,
                 placeholder = { Text("Pesquisar…", fontSize = 13.sp) },
                 leadingIcon = { Icon(Icons.Default.Search, null, Modifier.size(18.dp)) },
-                singleLine = true,
-                modifier = Modifier.weight(1f),
+                singleLine = true, modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(14.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                    focusedBorderColor = MaterialTheme.colorScheme.primary
-                )
+                    focusedBorderColor = MaterialTheme.colorScheme.primary)
             )
-            var sortMenuExpanded by remember { mutableStateOf(false) }
+            var sortMenu by remember { mutableStateOf(false) }
             Box {
-                IconButton({ sortMenuExpanded = true }) { Icon(Icons.Default.Sort, "Ordenar") }
-                DropdownMenu(sortMenuExpanded, { sortMenuExpanded = false }) {
+                IconButton({ sortMenu = true }) { Icon(Icons.Default.Sort, null) }
+                DropdownMenu(sortMenu, { sortMenu = false }) {
                     SortOrder.entries.forEach { order ->
-                        DropdownMenuItem(
-                            text = { Text(order.label) },
-                            onClick = { viewModel.setSortOrder(order); sortMenuExpanded = false },
-                            trailingIcon = { if (sortOrder == order) Icon(Icons.Default.Check, null) }
-                        )
+                        DropdownMenuItem(text = { Text(order.label) },
+                            onClick = { viewModel.setSortOrder(order); sortMenu = false },
+                            trailingIcon = { if (sortOrder == order) Icon(Icons.Default.Check, null) })
                     }
                 }
             }
@@ -95,22 +104,28 @@ fun LibraryScreen(
             }
         }
 
-        AnimatedContent(activeTab, label = "tab") { tab ->
-            when (tab) {
-                LibraryTab.COLLECTIONS -> {
+        // ── HorizontalPager com swipe ─────────────────────────────
+        HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
+            when (page) {
+                0 -> {
                     if (collections.isEmpty()) {
-                        EmptyLibrary(Icons.Default.FolderOpen, "Sem coleções", "Configura a pasta da biblioteca nas ⋮ Configurações")
+                        EmptyLibrary(Icons.Default.FolderOpen, "Sem coleções",
+                            "Vai a ⋮ → Configurações → Pasta da biblioteca")
                     } else {
-                        if (viewMode == ViewMode.GRID) CollectionGrid(collections, onCollectionClick, viewModel::toggleFavoriteCollection)
-                        else CollectionList(collections, onCollectionClick, viewModel::toggleFavoriteCollection)
+                        if (viewMode == ViewMode.GRID)
+                            CollectionGrid(collections, onCollectionClick, viewModel::toggleFavoriteCollection)
+                        else
+                            CollectionList(collections, onCollectionClick, viewModel::toggleFavoriteCollection)
                     }
                 }
-                LibraryTab.FILES -> {
+                1 -> {
                     if (books.isEmpty()) {
-                        EmptyLibrary(Icons.Default.InsertDriveFile, "Sem ficheiros", "Importa ficheiros com o botão +")
+                        EmptyLibrary(Icons.Default.InsertDriveFile, "Sem ficheiros", "Importa com o botão +")
                     } else {
-                        if (viewMode == ViewMode.GRID) BookGrid(books, onBookClick, viewModel::toggleFavoriteBook)
-                        else BookList(books, onBookClick, viewModel::toggleFavoriteBook)
+                        if (viewMode == ViewMode.GRID)
+                            BookGrid(books, onBookClick, viewModel::toggleFavoriteBook)
+                        else
+                            BookList(books, onBookClick, viewModel::toggleFavoriteBook)
                     }
                 }
             }
@@ -118,11 +133,12 @@ fun LibraryScreen(
     }
 }
 
+// ── Collection Grid ───────────────────────────────────────────────
 @Composable
-private fun CollectionGrid(collections: List<Collection>, onClick: (Long) -> Unit, onFav: (Collection) -> Unit) {
+private fun CollectionGrid(cols: List<Collection>, onClick: (Long) -> Unit, onFav: (Collection) -> Unit) {
     LazyVerticalGrid(columns = GridCells.Fixed(3), contentPadding = PaddingValues(12.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        items(collections, key = { it.id }) { col ->
+        items(cols, key = { it.id }) { col ->
             CollectionGridCard(col, { onClick(col.id) }, { onFav(col) })
         }
     }
@@ -154,9 +170,9 @@ fun CollectionGridCard(col: Collection, onClick: () -> Unit, onFav: () -> Unit) 
 }
 
 @Composable
-private fun CollectionList(collections: List<Collection>, onClick: (Long) -> Unit, onFav: (Collection) -> Unit) {
+private fun CollectionList(cols: List<Collection>, onClick: (Long) -> Unit, onFav: (Collection) -> Unit) {
     LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        items(collections, key = { it.id }) { col ->
+        items(cols, key = { it.id }) { col ->
             CollectionListCard(col, { onClick(col.id) }, { onFav(col) })
         }
     }
@@ -283,9 +299,8 @@ fun FormatBadge(format: String) {
 @Composable
 private fun EmptyLibrary(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Icon(icon, null, Modifier.size(72.dp), tint = MaterialTheme.colorScheme.onSurface.copy(0.2f))
-            Spacer(Modifier.height(16.dp))
             Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface.copy(0.4f))
             Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(0.3f))
         }
