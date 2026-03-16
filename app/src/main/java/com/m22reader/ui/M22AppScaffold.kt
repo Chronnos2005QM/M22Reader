@@ -9,7 +9,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.*
-import com.m22reader.ui.settings.SettingsScreen
 
 sealed class Screen(val route: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     object Library   : Screen("library",   "Biblioteca", Icons.Default.LibraryBooks)
@@ -31,29 +30,27 @@ fun M22AppScaffold(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    val isReaderScreen   = currentRoute?.startsWith("reader/") == true
-    val isSettingsScreen = currentRoute == "settings"
+    val isReaderScreen     = currentRoute?.startsWith("reader/") == true
+    val isChaptersScreen   = currentRoute?.startsWith("collection/") == true
+    val isSettingsScreen   = currentRoute == "settings"
+    val hideBottomAndTop   = isReaderScreen
 
     Scaffold(
         topBar = {
-            if (!isReaderScreen) {
+            if (!hideBottomAndTop) {
                 TopAppBar(
                     title = {
                         Text("M22 Reader", fontWeight = FontWeight.Black,
                             color = MaterialTheme.colorScheme.primary)
                     },
                     actions = {
-                        IconButton(onClick = onImportFile) {
-                            Icon(Icons.Default.Add, "Importar ficheiro")
-                        }
+                        IconButton(onClick = onImportFile) { Icon(Icons.Default.Add, "Importar") }
                         IconButton(onClick = onToggleTheme) {
                             Icon(if (darkTheme) Icons.Default.LightMode else Icons.Default.DarkMode, "Tema")
                         }
                         var menuExpanded by remember { mutableStateOf(false) }
                         Box {
-                            IconButton(onClick = { menuExpanded = true }) {
-                                Icon(Icons.Default.MoreVert, "Mais opções")
-                            }
+                            IconButton(onClick = { menuExpanded = true }) { Icon(Icons.Default.MoreVert, "Mais") }
                             DropdownMenu(menuExpanded, { menuExpanded = false }) {
                                 DropdownMenuItem(
                                     text = { Text("Configurações") },
@@ -73,7 +70,7 @@ fun M22AppScaffold(
             }
         },
         bottomBar = {
-            if (!isReaderScreen && !isSettingsScreen) {
+            if (!hideBottomAndTop && !isSettingsScreen && !isChaptersScreen) {
                 NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
                     bottomNavItems.forEach { screen ->
                         NavigationBarItem(
@@ -101,22 +98,40 @@ fun M22AppScaffold(
 fun M22NavHost(navController: NavHostController, modifier: Modifier = Modifier) {
     NavHost(navController, startDestination = Screen.Library.route, modifier = modifier) {
         composable(Screen.Library.route) {
-            com.m22reader.ui.library.LibraryScreen(onBookClick = { id -> navController.navigate("reader/$id") })
+            com.m22reader.ui.library.LibraryScreen(
+                onBookClick       = { id -> navController.navigate("reader/book/$id") },
+                onCollectionClick = { id -> navController.navigate("collection/$id") }
+            )
         }
         composable(Screen.Updates.route) {
-            com.m22reader.ui.updates.UpdatesScreen(onBookClick = { id -> navController.navigate("reader/$id") })
+            com.m22reader.ui.updates.UpdatesScreen(onBookClick = { id -> navController.navigate("reader/book/$id") })
         }
         composable(Screen.History.route) {
-            com.m22reader.ui.history.HistoryScreen(onBookClick = { id -> navController.navigate("reader/$id") })
+            com.m22reader.ui.history.HistoryScreen(onBookClick = { id -> navController.navigate("reader/book/$id") })
         }
         composable(Screen.Favorites.route) {
-            com.m22reader.ui.favorites.FavoritesScreen(onBookClick = { id -> navController.navigate("reader/$id") })
+            com.m22reader.ui.favorites.FavoritesScreen(onBookClick = { id -> navController.navigate("reader/book/$id") })
         }
         composable("settings") {
-            SettingsScreen(onBack = { navController.popBackStack() })
+            com.m22reader.ui.settings.SettingsScreen(onBack = { navController.popBackStack() })
         }
-        composable("reader/{bookId}") { backStack ->
+        // Ecrã de capítulos de uma coleção
+        composable("collection/{collectionId}") { backStack ->
+            val id = backStack.arguments?.getString("collectionId")?.toLongOrNull() ?: return@composable
+            com.m22reader.ui.chapters.ChaptersScreen(
+                collectionId  = id,
+                onChapterClick = { chapId -> navController.navigate("reader/chapter/$chapId") },
+                onBack        = { navController.popBackStack() }
+            )
+        }
+        // Leitor de ficheiro avulso
+        composable("reader/book/{bookId}") { backStack ->
             val id = backStack.arguments?.getString("bookId")?.toLongOrNull() ?: return@composable
+            com.m22reader.ui.reader.ReaderScreen(bookId = id, onBack = { navController.popBackStack() })
+        }
+        // Leitor de capítulo de coleção
+        composable("reader/chapter/{chapterId}") { backStack ->
+            val id = backStack.arguments?.getString("chapterId")?.toLongOrNull() ?: return@composable
             com.m22reader.ui.reader.ReaderScreen(bookId = id, onBack = { navController.popBackStack() })
         }
     }

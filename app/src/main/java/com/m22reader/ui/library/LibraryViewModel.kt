@@ -36,6 +36,9 @@ class LibraryViewModel @Inject constructor(
     private val _activeTab = MutableStateFlow(LibraryTab.COLLECTIONS)
     val activeTab: StateFlow<LibraryTab> = _activeTab.asStateFlow()
 
+    private val _isScanning = MutableStateFlow(false)
+    val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
+
     @OptIn(ExperimentalCoroutinesApi::class)
     val collections: StateFlow<List<Collection>> = _searchQuery
         .debounce(300)
@@ -45,7 +48,7 @@ class LibraryViewModel @Inject constructor(
         }
         .combine(_sortOrder) { cols, sort ->
             when (sort) {
-                SortOrder.TITLE      -> cols.sortedBy { it.title }
+                SortOrder.TITLE      -> cols.sortedBy { it.name }
                 SortOrder.LAST_READ  -> cols.sortedByDescending { it.lastReadAt }
                 SortOrder.PROGRESS   -> cols.sortedByDescending { it.progressPercent }
                 SortOrder.DATE_ADDED -> cols
@@ -74,7 +77,9 @@ class LibraryViewModel @Inject constructor(
             val folder = settings.libraryFolder.first()
             val autoScan = settings.autoScan.first()
             if (folder.isNotEmpty() && autoScan) {
+                _isScanning.value = true
                 collectionRepo.scanLibraryFolder(folder)
+                _isScanning.value = false
             }
         }
     }
@@ -83,10 +88,17 @@ class LibraryViewModel @Inject constructor(
     fun toggleViewMode() { _viewMode.value = if (_viewMode.value == ViewMode.GRID) ViewMode.LIST else ViewMode.GRID }
     fun setSortOrder(order: SortOrder) { _sortOrder.value = order }
     fun setActiveTab(tab: LibraryTab) { _activeTab.value = tab }
-    fun toggleFavoriteCollection(col: Collection) = viewModelScope.launch { collectionRepo.toggleFavorite(col.id, col.isFavorite) }
-    fun toggleFavoriteBook(book: Book) = viewModelScope.launch { bookRepo.toggleFavorite(book.id, book.isFavorite) }
+
+    fun toggleFavoriteCollection(col: Collection) = viewModelScope.launch {
+        collectionRepo.toggleFavorite(col.id, col.isFavorite)
+    }
+    fun toggleFavoriteBook(book: Book) = viewModelScope.launch {
+        bookRepo.toggleFavorite(book.id, book.isFavorite)
+    }
     fun scanLibrary() = viewModelScope.launch {
+        _isScanning.value = true
         val folder = settings.libraryFolder.first()
         if (folder.isNotEmpty()) collectionRepo.scanLibraryFolder(folder)
+        _isScanning.value = false
     }
 }

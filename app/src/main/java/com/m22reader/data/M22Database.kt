@@ -5,13 +5,14 @@ import com.m22reader.data.dao.BookDao
 import com.m22reader.data.dao.CollectionDao
 import com.m22reader.data.model.Book
 import com.m22reader.data.model.BookFormat
+import com.m22reader.data.model.Chapter
 import com.m22reader.data.model.Collection
 import java.util.Date
 
 @TypeConverters(Converters::class)
 @Database(
-    entities = [Book::class, Collection::class],
-    version = 2,
+    entities = [Book::class, Collection::class, Chapter::class],
+    version = 3,
     exportSchema = false
 )
 abstract class M22Database : RoomDatabase() {
