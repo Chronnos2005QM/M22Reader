@@ -41,3 +41,12 @@ jobs:
         with:
           name: M22Reader-debug
           path: app/build/outputs/apk/debug/app-debug.apk
+
+
+      - name: Enviar para o Telegram
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_CHAT_ID }}
+          token: ${{ secrets.TELEGRAM_TOKEN }}
+          message: "🚀 M22 Reader (Nativo) pronto! O APK Java/Kotlin acabou de ser gerado."
+          document: app/build/outputs/apk/debug/app-debug.apk
