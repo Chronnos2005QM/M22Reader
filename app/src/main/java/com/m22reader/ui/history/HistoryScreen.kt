@@ -80,5 +80,3 @@ private fun HistoryCard(book: Book, onClick: () -> Unit) {
 }
 
 // ─── Modifier extension used inside HistoryCard ───────────────────────────────
-private fun Modifier.background(brush: androidx.compose.ui.graphics.Brush, shape: androidx.compose.ui.graphics.Shape) =
-    this.then(Modifier.background(brush, shape))

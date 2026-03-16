@@ -23,7 +23,6 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.m22reader.data.model.Book
-import com.m22reader.data.model.progressPercent
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
