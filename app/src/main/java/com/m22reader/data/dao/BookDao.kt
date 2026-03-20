@@ -3,46 +3,33 @@ package com.m22reader.data.dao
 import androidx.room.*
 import com.m22reader.data.model.Book
 import kotlinx.coroutines.flow.Flow
-import java.util.Date
 
 @Dao
 interface BookDao {
-
-    // ── Library ──────────────────────────────────────────────
     @Query("SELECT * FROM books ORDER BY addedAt DESC")
     fun getAllBooks(): Flow<List<Book>>
 
-    @Query("SELECT * FROM books WHERE title LIKE '%' || :query || '%' OR author LIKE '%' || :query || '%'")
-    fun searchBooks(query: String): Flow<List<Book>>
+    @Query("SELECT * FROM books WHERE title LIKE '%' || :q || '%'")
+    fun searchBooks(q: String): Flow<List<Book>>
 
-    @Query("SELECT * FROM books WHERE isFavorite = 1 ORDER BY title ASC")
-    fun getFavorites(): Flow<List<Book>>
+    @Query("SELECT * FROM books WHERE id = :id LIMIT 1")
+    suspend fun getById(id: Long): Book?
 
-    // ── History ───────────────────────────────────────────────
-    @Query("SELECT * FROM books WHERE lastReadAt IS NOT NULL ORDER BY lastReadAt DESC LIMIT 50")
-    fun getReadingHistory(): Flow<List<Book>>
+    @Query("SELECT * FROM books WHERE filePath = :path LIMIT 1")
+    suspend fun getByPath(path: String): Book?
 
-    // ── Updates (recently added) ──────────────────────────────
-    @Query("SELECT * FROM books ORDER BY addedAt DESC LIMIT 20")
-    fun getRecentlyAdded(): Flow<List<Book>>
-
-    // ── Single book ───────────────────────────────────────────
-    @Query("SELECT * FROM books WHERE id = :id")
-    suspend fun getBookById(id: Long): Book?
-
-    // ── Mutations ─────────────────────────────────────────────
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertBook(book: Book): Long
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insert(book: Book): Long
 
     @Update
-    suspend fun updateBook(book: Book)
+    suspend fun update(book: Book)
 
     @Delete
-    suspend fun deleteBook(book: Book)
+    suspend fun delete(book: Book)
 
     @Query("UPDATE books SET isFavorite = :fav WHERE id = :id")
     suspend fun setFavorite(id: Long, fav: Boolean)
 
-    @Query("UPDATE books SET lastReadChapter = :chapter, lastReadPage = :page, lastReadAt = :date WHERE id = :id")
-    suspend fun updateProgress(id: Long, chapter: Int, page: Int, date: Date = Date())
+    @Query("UPDATE books SET lastReadChapterNumber = :chapNum, lastReadPage = :page, lastReadAt = :date WHERE id = :id")
+    suspend fun updateProgress(id: Long, chapNum: Int, page: Int, date: java.util.Date = java.util.Date())
 }
