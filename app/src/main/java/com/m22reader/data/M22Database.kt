@@ -1,8 +1,17 @@
 package com.m22reader.data
 
-import androidx.room.*
-import com.m22reader.data.dao.*
-import com.m22reader.data.model.*
+import androidx.room.Database
+import androidx.room.RoomDatabase
+import androidx.room.TypeConverter
+import androidx.room.TypeConverters
+import com.m22reader.data.dao.BookDao
+import com.m22reader.data.dao.CollectionDao
+import com.m22reader.data.dao.ReadingSessionDao
+import com.m22reader.data.model.Book
+import com.m22reader.data.model.BookFormat
+import com.m22reader.data.model.Chapter
+import com.m22reader.data.model.Collection
+import com.m22reader.data.model.ReadingSession
 import java.util.Date
 
 @TypeConverters(Converters::class)
