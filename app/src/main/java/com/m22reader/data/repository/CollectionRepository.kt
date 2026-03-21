@@ -10,18 +10,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.zip.ZipFile
 import javax.inject.Inject
 import javax.inject.Singleton
 
 private val SUPPORTED = setOf("pdf", "epub", "cbz", "cbr")
 private val COVER_NAMES = setOf("cover.jpg", "cover.jpeg", "cover.png", "folder.jpg", "folder.png")
 
-// Extrai número do capítulo do nome do ficheiro
-// Ex: "Solo_Leveling_Cap_001.cbz" → 1
-//     "Chapter 42.pdf" → 42
 private fun extractChapterNumber(fileName: String): Int {
     val name = fileName.substringBeforeLast('.')
-    // Procura padrões: cap/chapter/ch seguido de número, ou número no final
     val patterns = listOf(
         Regex("""(?:cap|chapter|ch|capitulo|ep|episode)[.\s_-]*(\d+)""", RegexOption.IGNORE_CASE),
         Regex("""(\d+)$"""),
@@ -48,84 +45,86 @@ class CollectionRepository @Inject constructor(
     suspend fun scanLibraryFolder(rootPath: String) = withContext(Dispatchers.IO) {
         val root = File(rootPath)
         if (!root.exists() || !root.isDirectory) return@withContext
+        scanFolderRecursive(root, depth = 0)
+    }
 
-        // ── Subpastas = Coleções ──────────────────────────────────
-        root.listFiles()?.filter { it.isDirectory }?.forEach { folder ->
-            processFolderAsCollection(folder)
+    private suspend fun scanFolderRecursive(folder: File, depth: Int) {
+        if (depth > 3) return
+        val files = folder.listFiles() ?: return
+        val supportedFiles = files
+            .filter { it.isFile && it.extension.lowercase() in SUPPORTED }
+            .sortedWith(compareBy({ extractChapterNumber(it.name) }, { it.name }))
+        val subFolders = files.filter { it.isDirectory }
+
+        if (supportedFiles.isNotEmpty()) {
+            processFolderAsCollection(folder, supportedFiles)
         }
 
-        // ── Ficheiros soltos na raiz = Coleções individuais ────────
-        root.listFiles()?.filter {
-            it.isFile && it.extension.lowercase() in SUPPORTED
-        }?.forEach { file ->
-            if (dao.getByPath(file.absolutePath) == null) {
-                val colId = dao.insertCollection(Collection(
-                    name       = file.nameWithoutExtension.replace(Regex("[_-]"), " "),
-                    folderPath = file.absolutePath,
-                    chapterCount = 1,
-                ))
-                if (colId > 0) {
-                    dao.insertChapter(Chapter(
-                        collectionId  = colId,
-                        fileName      = file.name,
-                        filePath      = file.absolutePath,
-                        chapterNumber = 1,
-                        format        = BookFormat.valueOf(file.extension.uppercase()),
-                    ))
-                }
-            }
+        for (sub in subFolders) {
+            scanFolderRecursive(sub, depth + 1)
         }
     }
 
-    private suspend fun processFolderAsCollection(folder: File) {
-        val chapters = folder.listFiles()
-            ?.filter { it.isFile && it.extension.lowercase() in SUPPORTED }
-            ?.sortedWith(compareBy({ extractChapterNumber(it.name) }, { it.name }))
-            ?: return
-
-        if (chapters.isEmpty()) return
-
-        // Encontrar capa
+    private suspend fun processFolderAsCollection(folder: File, chapters: List<File>) {
         val coverFile = folder.listFiles()?.firstOrNull { it.name.lowercase() in COVER_NAMES }
+        val coverPath = coverFile?.absolutePath ?: extractCoverFromCbz(chapters.firstOrNull())
 
-        // Verificar se coleção já existe
         val existing = dao.getByPath(folder.absolutePath)
         val collectionId: Long
 
         if (existing == null) {
-            // Nova coleção
             collectionId = dao.insertCollection(Collection(
-                name         = folder.name.replace(Regex("[_-]"), " "),
-                folderPath   = folder.absolutePath,
-                coverPath    = coverFile?.absolutePath,
+                name = folder.name.replace(Regex("[-_]"), " "),
+                folderPath = folder.absolutePath,
+                coverPath = coverPath,
                 chapterCount = chapters.size,
             ))
         } else {
-            // Atualizar existente
             collectionId = existing.id
             dao.updateCollection(existing.copy(
                 chapterCount = chapters.size,
-                coverPath    = coverFile?.absolutePath ?: existing.coverPath,
+                coverPath = coverPath ?: existing.coverPath,
             ))
         }
 
         if (collectionId <= 0) return
 
-        // Inserir capítulos novos
         chapters.forEach { file ->
-            val exists = dao.getChapterByPath(file.absolutePath)
-            if (exists == null) {
-                val format = try { BookFormat.valueOf(file.extension.uppercase()) }
-                             catch (_: Exception) { return@forEach }
+            if (dao.getChapterByPath(file.absolutePath) == null) {
+                val format = try {
+                    BookFormat.valueOf(file.extension.uppercase())
+                } catch (_: Exception) { return@forEach }
                 dao.insertChapter(Chapter(
-                    collectionId  = collectionId,
-                    fileName      = file.name,
-                    filePath      = file.absolutePath,
+                    collectionId = collectionId,
+                    fileName = file.name,
+                    filePath = file.absolutePath,
                     chapterNumber = extractChapterNumber(file.name),
-                    format        = format,
+                    format = format,
                 ))
             }
         }
+    }
+
+    private fun extractCoverFromCbz(file: File?): String? {
+        if (file == null || file.extension.lowercase() != "cbz") return null
+        return try {
+            val zip = ZipFile(file)
+            val entry = zip.entries().asSequence()
+                .filter { !it.isDirectory }
+                .filter { it.name.lowercase().let { n ->
+                    n.endsWith(".jpg") || n.endsWith(".jpeg") ||
+                    n.endsWith(".png") || n.endsWith(".webp")
+                }}
+                .minByOrNull { it.name }
+            if (entry != null) {
+                val coverFile = File(file.parent, ".cover_${file.nameWithoutExtension}.jpg")
+                zip.getInputStream(entry).use { input ->
+                    coverFile.outputStream().use { out -> input.copyTo(out) }
+                }
+                zip.close()
+                coverFile.absolutePath
+            } else { zip.close(); null }
+        } catch (_: Exception) { null }
     }
 
     suspend fun toggleFavorite(id: Long, current: Boolean) = dao.setFavorite(id, !current)

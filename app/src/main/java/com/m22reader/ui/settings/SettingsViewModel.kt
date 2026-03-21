@@ -1,6 +1,8 @@
 package com.m22reader.ui.settings
 
 import android.content.Context
+import android.net.Uri
+import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.m22reader.data.repository.CollectionRepository
@@ -24,15 +26,17 @@ class SettingsViewModel @Inject constructor(
     val darkTheme     = settings.darkTheme.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), true)
     val autoScan      = settings.autoScan.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), true)
 
-    fun setLibraryFolder(path: String) = viewModelScope.launch {
-        // Resolver o path do URI do SAF para caminho real
-        val realPath = resolveUriPath(path)
+    fun setLibraryFolder(uriString: String) = viewModelScope.launch {
+        val realPath = resolveUriPath(uriString)
         settings.setLibraryFolder(realPath)
         collectionRepo.scanLibraryFolder(realPath)
     }
-    fun setBackupFolder(path: String) = viewModelScope.launch {
-        settings.setBackupFolder(resolveUriPath(path))
+
+    fun setBackupFolder(uriString: String) = viewModelScope.launch {
+        val realPath = resolveUriPath(uriString)
+        settings.setBackupFolder(realPath)
     }
+
     fun setDarkTheme(v: Boolean) = viewModelScope.launch { settings.setDarkTheme(v) }
     fun setAutoScan(v: Boolean)  = viewModelScope.launch { settings.setAutoScan(v) }
 
@@ -42,28 +46,34 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun backupLibrary() = viewModelScope.launch {
-        val backupPath = settings.backupFolder.first()
-        if (backupPath.isEmpty()) return@launch
-        val backupDir = File(backupPath, "M22Reader_backup")
-        backupDir.mkdirs()
-        val dbFile = context.getDatabasePath("m22_reader.db")
-        if (dbFile.exists()) dbFile.copyTo(File(backupDir, "m22_reader.db"), overwrite = true)
+        try {
+            val backupPath = settings.backupFolder.first()
+            if (backupPath.isEmpty()) return@launch
+            val backupDir = File(backupPath, "M22Reader_backup")
+            backupDir.mkdirs()
+            val dbFile = context.getDatabasePath("m22_reader.db")
+            if (dbFile.exists()) {
+                dbFile.copyTo(File(backupDir, "m22_reader.db"), overwrite = true)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
-    // Converte path do SAF URI para caminho acessível
-    // Ex: /tree/primary:Komikku/local → /sdcard/Komikku/local
-    private fun resolveUriPath(uriPath: String): String {
-        return when {
-            uriPath.startsWith("/tree/primary:") -> {
-                val rel = uriPath.removePrefix("/tree/primary:")
-                "/sdcard/$rel"
+    private fun resolveUriPath(uriString: String): String {
+        return try {
+            val uri = Uri.parse(uriString)
+            val docFile = DocumentFile.fromTreeUri(context, uri)
+            val lastSegment = uri.lastPathSegment ?: return uriString
+            when {
+                lastSegment.startsWith("primary:") ->
+                    "/sdcard/${lastSegment.removePrefix("primary:")}"
+                lastSegment.contains(":") -> {
+                    val parts = lastSegment.split(":")
+                    if (parts.size >= 2) "/storage/${parts[0]}/${parts[1]}" else uriString
+                }
+                else -> uriString
             }
-            uriPath.startsWith("/tree/") -> {
-                // SD card externo
-                val parts = uriPath.removePrefix("/tree/").split(":")
-                if (parts.size >= 2) "/storage/${parts[0]}/${parts[1]}" else uriPath
-            }
-            else -> uriPath
-        }
+        } catch (_: Exception) { uriString }
     }
 }

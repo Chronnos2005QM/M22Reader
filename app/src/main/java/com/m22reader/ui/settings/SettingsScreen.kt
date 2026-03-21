@@ -2,9 +2,10 @@ package com.m22reader.ui.settings
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -12,194 +13,192 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(
-    onBack: () -> Unit,
-    vm: SettingsViewModel = hiltViewModel(),
-    statsVm: StatsViewModel = hiltViewModel()
-) {
+fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
     val libraryFolder by vm.libraryFolder.collectAsState()
     val backupFolder  by vm.backupFolder.collectAsState()
     val darkTheme     by vm.darkTheme.collectAsState()
     val autoScan      by vm.autoScan.collectAsState()
-    val stats         by statsVm.stats.collectAsState(initial = ReadingStats())
-    var showBackupDone by remember { mutableStateOf(false) }
 
-    val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-        uri?.let { vm.setLibraryFolder(it.path ?: it.toString()) }
-    }
-    val backupPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-        uri?.let { vm.setBackupFolder(it.path ?: it.toString()) }
-    }
+    val libraryPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { uri -> uri?.let { vm.setLibraryFolder(it.toString()) } }
+
+    val backupPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { uri -> uri?.let { vm.setBackupFolder(it.toString()) } }
+
+    var expandedSection by remember { mutableStateOf<String?>("library") }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Configurações", fontWeight = FontWeight.Bold) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Voltar") } }
-            )
-        }
+        topBar = { TopAppBar(title = { Text("Configurações") }) }
     ) { padding ->
-        LazyColumn(
-            Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(16.dp),
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // ── Biblioteca ─────────────────────────────────────────
-            item { SectionTitle("📚 Biblioteca") }
-            item {
-                SettingItem(Icons.Default.Folder, "Pasta da biblioteca",
-                    if (libraryFolder.isEmpty()) "Nenhuma pasta selecionada" else libraryFolder
-                ) { folderPicker.launch(null) }
-            }
-            item {
-                SettingItem(Icons.Default.Refresh, "Sincronizar agora",
-                    "Verificar novos ficheiros na pasta"
-                ) { vm.scanLibraryFolder() }
-            }
-            item {
-                SettingToggle(Icons.Default.AutoMode, "Sincronização automática",
-                    "Detectar ficheiros ao abrir", autoScan, vm::setAutoScan)
-            }
-
-            // ── Backup ─────────────────────────────────────────────
-            item { SectionTitle("💾 Backup") }
-            item {
-                SettingItem(Icons.Default.FolderOpen, "Pasta de backup",
-                    if (backupFolder.isEmpty()) "Nenhuma pasta selecionada" else backupFolder
-                ) { backupPicker.launch(null) }
-            }
-            item {
-                SettingItem(Icons.Default.Backup, "Fazer backup agora",
-                    "Guardar base de dados"
-                ) { vm.backupLibrary(); showBackupDone = true }
+            SettingsSection(
+                title = "Biblioteca",
+                icon = Icons.Default.LibraryBooks,
+                expanded = expandedSection == "library",
+                onToggle = { expandedSection = if (expandedSection == "library") null else "library" }
+            ) {
+                SettingsItem(
+                    title = "Pasta da biblioteca",
+                    subtitle = libraryFolder.ifEmpty { "Toca para definir" },
+                    icon = Icons.Default.Folder,
+                    onClick = { libraryPicker.launch(null) }
+                )
+                SettingsSwitchItem(
+                    title = "Scan automático",
+                    subtitle = "Procurar ficheiros ao abrir o app",
+                    icon = Icons.Default.Refresh,
+                    checked = autoScan,
+                    onCheckedChange = { vm.setAutoScan(it) }
+                )
+                SettingsItem(
+                    title = "Scan manual",
+                    subtitle = "Procurar novos ficheiros agora",
+                    icon = Icons.Default.Search,
+                    onClick = { vm.scanLibraryFolder() }
+                )
             }
 
-            // ── Aparência ───────────────────────────────────────────
-            item { SectionTitle("🎨 Aparência") }
-            item {
-                SettingToggle(Icons.Default.DarkMode, "Tema escuro",
-                    "Interface com fundo preto", darkTheme, vm::setDarkTheme)
+            SettingsSection(
+                title = "Leitura",
+                icon = Icons.Default.MenuBook,
+                expanded = expandedSection == "reading",
+                onToggle = { expandedSection = if (expandedSection == "reading") null else "reading" }
+            ) {
+                SettingsSwitchItem(
+                    title = "Tema escuro",
+                    subtitle = "Interface com fundo escuro",
+                    icon = Icons.Default.DarkMode,
+                    checked = darkTheme,
+                    onCheckedChange = { vm.setDarkTheme(it) }
+                )
             }
 
-            // ── Estatísticas ────────────────────────────────────────
-            item { SectionTitle("📊 Estatísticas de Leitura") }
-            item {
-                Card(shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface)) {
-                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            SettingsSection(
+                title = "Backup",
+                icon = Icons.Default.Backup,
+                expanded = expandedSection == "backup",
+                onToggle = { expandedSection = if (expandedSection == "backup") null else "backup" }
+            ) {
+                SettingsItem(
+                    title = "Pasta de backup",
+                    subtitle = backupFolder.ifEmpty { "Toca para definir" },
+                    icon = Icons.Default.FolderOpen,
+                    onClick = { backupPicker.launch(null) }
+                )
+                SettingsItem(
+                    title = "Fazer backup agora",
+                    subtitle = "Guardar base de dados na pasta",
+                    icon = Icons.Default.Save,
+                    onClick = { vm.backupLibrary() }
+                )
+            }
+        }
+    }
+}
 
-                        // Linha 1: Coleções e Ficheiros
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            StatBox("Coleções", "${stats.totalCollections}", Modifier.weight(1f))
-                            StatBox("Ficheiros", "${stats.totalBooks}", Modifier.weight(1f))
-                            StatBox("Caps. lidos", "${stats.totalChaptersRead}", Modifier.weight(1f))
-                        }
-
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(0.3f))
-
-                        // Linha 2: Tempo
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            StatBox("Tempo total", formatDuration(stats.totalReadingSeconds), Modifier.weight(1f))
-                            StatBox("Páginas lidas", "${stats.totalPagesRead}", Modifier.weight(1f))
-                        }
-
-                        // Estimativa de tempo restante
-                        if (stats.avgSecondsPerPage > 0 && stats.totalCollections > 0) {
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(0.3f))
-                            val remainingPages = stats.totalPagesRead * 2 // estimativa
-                            val remainingSecs = (remainingPages * stats.avgSecondsPerPage).toLong()
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Icon(Icons.Default.Schedule, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                                Text("Estimativa restante: ${formatDuration(remainingSecs)}",
-                                    fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(0.6f))
-                            }
-                        }
-                    }
+@Composable
+fun SettingsSection(
+    title: String,
+    icon: ImageVector,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onToggle() }
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(icon, contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary)
+                    Text(title, style = MaterialTheme.typography.titleMedium)
+                }
+                Icon(
+                    if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = null
+                )
+            }
+            if (expanded) {
+                HorizontalDivider()
+                Column(modifier = Modifier.padding(bottom = 8.dp)) {
+                    content()
                 }
             }
-
-            // ── Sobre ────────────────────────────────────────────
-            item { SectionTitle("ℹ️ Sobre") }
-            item {
-                SettingItem(Icons.Default.Info, "M22 Reader",
-                    "Versão 1.0.0 · Feito com ❤️") {}
-            }
-        }
-    }
-
-    if (showBackupDone) {
-        AlertDialog(
-            onDismissRequest = { showBackupDone = false },
-            title = { Text("Backup concluído") },
-            text = { Text("Biblioteca guardada com sucesso!") },
-            confirmButton = { TextButton(onClick = { showBackupDone = false }) { Text("OK") } }
-        )
-    }
-}
-
-@Composable
-private fun StatBox(label: String, value: String, modifier: Modifier = Modifier) {
-    Card(modifier, shape = RoundedCornerShape(10.dp),
-        colors = CardDefaults.cardColors(MaterialTheme.colorScheme.primary.copy(0.08f))) {
-        Column(Modifier.fillMaxWidth().padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(value, fontWeight = FontWeight.Black, fontSize = 20.sp, color = MaterialTheme.colorScheme.primary)
-            Text(label, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(0.5f), fontWeight = FontWeight.Medium)
-        }
-    }
-}
-
-private fun formatDuration(seconds: Long): String {
-    if (seconds <= 0) return "0m"
-    val h = seconds / 3600
-    val m = (seconds % 3600) / 60
-    return when {
-        h > 0  -> "${h}h ${m}m"
-        else   -> "${m}m"
-    }
-}
-
-@Composable
-private fun SectionTitle(text: String) {
-    Text(text, fontSize = 11.sp, fontWeight = FontWeight.Black,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
-}
-
-@Composable
-private fun SettingItem(icon: ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
-    Card(onClick = onClick, shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface)) {
-        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
-            Column(Modifier.weight(1f)) {
-                Text(title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                Text(subtitle, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(0.5f), maxLines = 1)
-            }
-            Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurface.copy(0.3f))
         }
     }
 }
 
 @Composable
-private fun SettingToggle(icon: ImageVector, title: String, subtitle: String, checked: Boolean, onChecked: (Boolean) -> Unit) {
-    Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface)) {
-        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
-            Column(Modifier.weight(1f)) {
-                Text(title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                Text(subtitle, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(0.5f))
-            }
-            Switch(checked = checked, onCheckedChange = onChecked,
-                colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.primary))
+fun SettingsItem(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Icon(icon, contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+        Icon(Icons.Default.ChevronRight, contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+fun SettingsSwitchItem(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Icon(icon, contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
