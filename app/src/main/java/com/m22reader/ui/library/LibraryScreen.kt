@@ -261,7 +261,6 @@ fun BookListCard(book: Book, onClick: () -> Unit, onFavorite: () -> Unit) {
                 Text(book.author, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(0.5f))
                 Spacer(Modifier.height(6.dp))
                 FormatBadge(book.format.name)
-                Spacer(Modifier.height(6.dp))
                 LinearProgressIndicator(progress = { book.progressPercent / 100f },
                     Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(2.dp)), color = MaterialTheme.colorScheme.primary)
                 Text("Cap. ${book.lastReadChapter} / ${book.totalChapters}", style = MaterialTheme.typography.labelSmall,
