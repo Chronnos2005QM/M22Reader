@@ -3,25 +3,25 @@ package com.m22reader.data.repository
 import android.content.Context
 import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import javax.inject.Inject
 
 class CollectionRepository @Inject constructor() {
 
-    // Função para escanear a pasta da biblioteca usando DocumentFile
-    fun scanLibraryFolder(context: Context, uri: Uri) {
-        val root = DocumentFile.fromTreeUri(context, uri) ?: return
-        scanFolderRecursive(root)
+    fun scanLibraryFolder(context: Context, uri: Uri): Flow<List<String>> = flow {
+        val root = DocumentFile.fromTreeUri(context, uri) ?: return@flow
+        val files = mutableListOf<String>()
+        scanFolderRecursive(root, files)
+        emit(files)
     }
 
-    // Função recursiva para escanear pastas e arquivos
-    private fun scanFolderRecursive(folder: DocumentFile) {
+    private fun scanFolderRecursive(folder: DocumentFile, files: MutableList<String>) {
         folder.listFiles().forEach { file ->
             if (file.isDirectory) {
-                scanFolderRecursive(file)
+                scanFolderRecursive(file, files)
             } else {
-                // Processar arquivos (ex: CBZ, CBR, PDF, EPUB)
-                println("File: ${file.name}, URI: ${file.uri}")
-                // Adicione aqui a lógica para importar o arquivo
+                files.add(file.name ?: "")
             }
         }
     }
