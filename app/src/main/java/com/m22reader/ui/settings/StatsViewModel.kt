@@ -6,7 +6,6 @@ import javax.inject.Inject
 
 @HiltViewModel
 class StatsViewModel @Inject constructor() : ViewModel() {
-    // Exemplo de função corrigida
     fun getStats(): List<String> {
         return emptyList()
     }
