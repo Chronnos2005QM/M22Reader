@@ -59,15 +59,18 @@ class SettingsViewModel @Inject constructor(
     }
 
     private fun resolveUriPath(uriString: String): String {
+        if (!uriString.startsWith("content://")) return uriString
         return try {
             val uri = Uri.parse(uriString)
-            val lastSegment = uri.lastPathSegment ?: return uriString
+            // uri.path é algo como /tree/primary:Manhwas ou /tree/1A2B-3C4D:Pasta
+            val path = uri.path ?: return uriString
+            val treeSegment = path.removePrefix("/tree/")
             when {
-                lastSegment.startsWith("primary:") ->
-                    "/sdcard/${lastSegment.removePrefix("primary:")}"
-                lastSegment.contains(":") -> {
-                    val parts = lastSegment.split(":")
-                    if (parts.size >= 2) "/storage/${parts[0]}/${parts[1]}" else uriString
+                treeSegment.startsWith("primary:") ->
+                    "/sdcard/${treeSegment.removePrefix("primary:")}"
+                treeSegment.contains(":") -> {
+                    val parts = treeSegment.split(":", limit = 2)
+                    "/storage/${parts[0]}/${parts[1]}"
                 }
                 else -> uriString
             }
