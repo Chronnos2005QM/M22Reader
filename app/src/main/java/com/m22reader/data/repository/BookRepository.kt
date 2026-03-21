@@ -9,8 +9,13 @@ import javax.inject.Singleton
 @Singleton
 class BookRepository @Inject constructor(private val dao: BookDao) {
     val allBooks: Flow<List<Book>> = dao.getAllBooks()
+    val favorites: Flow<List<Book>> = dao.getFavorites()
+    val recentlyAdded: Flow<List<Book>> = dao.getRecentlyAdded()
+
     fun search(q: String): Flow<List<Book>> = dao.searchBooks(q)
     suspend fun getById(id: Long): Book? = dao.getById(id)
+    suspend fun addBook(book: Book): Long = dao.addBook(book)
     suspend fun toggleFavorite(id: Long, current: Boolean) = dao.setFavorite(id, !current)
-    suspend fun updateProgress(id: Long, chapNum: Int, page: Int) = dao.updateProgress(id, chapNum, page)
+    suspend fun updateProgress(id: Long, chapNum: Int, page: Int) =
+        dao.updateProgress(id, chapNum, page)
 }

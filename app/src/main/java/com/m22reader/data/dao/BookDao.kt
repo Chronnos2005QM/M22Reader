@@ -9,6 +9,12 @@ interface BookDao {
     @Query("SELECT * FROM books ORDER BY addedAt DESC")
     fun getAllBooks(): Flow<List<Book>>
 
+    @Query("SELECT * FROM books WHERE isFavorite = 1 ORDER BY title ASC")
+    fun getFavorites(): Flow<List<Book>>
+
+    @Query("SELECT * FROM books WHERE recentlyAdded = 1 ORDER BY addedAt DESC")
+    fun getRecentlyAdded(): Flow<List<Book>>
+
     @Query("SELECT * FROM books WHERE title LIKE '%' || :q || '%'")
     fun searchBooks(q: String): Flow<List<Book>>
 
@@ -21,6 +27,9 @@ interface BookDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(book: Book): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun addBook(book: Book): Long
+
     @Update
     suspend fun update(book: Book)
 
@@ -30,6 +39,6 @@ interface BookDao {
     @Query("UPDATE books SET isFavorite = :fav WHERE id = :id")
     suspend fun setFavorite(id: Long, fav: Boolean)
 
-    @Query("UPDATE books SET lastReadChapterNumber = :chapNum, lastReadPage = :page, lastReadAt = :date WHERE id = :id")
+    @Query("UPDATE books SET lastReadChapter = :chapNum, lastReadPage = :page, lastReadAt = :date WHERE id = :id")
     suspend fun updateProgress(id: Long, chapNum: Int, page: Int, date: java.util.Date = java.util.Date())
 }

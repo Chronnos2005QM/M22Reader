@@ -8,15 +8,16 @@ import java.util.Date
 data class Book(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val title: String,
+    val author: String? = null,
     val filePath: String,
+    val coverPath: String? = null,
     val format: BookFormat,
     val totalChapters: Int = 0,
-    val lastReadChapterNumber: Int = 0,
+    val lastReadChapter: Int = 0,
     val lastReadPage: Int = 0,
+    val progressPercent: Int = 0,
     val isFavorite: Boolean = false,
+    val recentlyAdded: Boolean = false,
     val addedAt: Date = Date(),
     val lastReadAt: Date? = null,
-) {
-    val progressPercent: Int
-        get() = if (totalChapters > 0) ((lastReadChapterNumber.toFloat() / totalChapters) * 100).toInt() else 0
-}
+)
