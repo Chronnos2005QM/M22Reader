@@ -18,7 +18,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
+fun SettingsScreen(onBack: () -> Unit = {}, vm: SettingsViewModel = hiltViewModel()) {
     val libraryFolder by vm.libraryFolder.collectAsState()
     val backupFolder  by vm.backupFolder.collectAsState()
     val darkTheme     by vm.darkTheme.collectAsState()

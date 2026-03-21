@@ -2,7 +2,6 @@ package com.m22reader.ui.settings
 
 import android.content.Context
 import android.net.Uri
-import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.m22reader.data.repository.CollectionRepository
@@ -33,8 +32,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun setBackupFolder(uriString: String) = viewModelScope.launch {
-        val realPath = resolveUriPath(uriString)
-        settings.setBackupFolder(realPath)
+        settings.setBackupFolder(resolveUriPath(uriString))
     }
 
     fun setDarkTheme(v: Boolean) = viewModelScope.launch { settings.setDarkTheme(v) }
@@ -63,7 +61,6 @@ class SettingsViewModel @Inject constructor(
     private fun resolveUriPath(uriString: String): String {
         return try {
             val uri = Uri.parse(uriString)
-            val docFile = DocumentFile.fromTreeUri(context, uri)
             val lastSegment = uri.lastPathSegment ?: return uriString
             when {
                 lastSegment.startsWith("primary:") ->
