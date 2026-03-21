@@ -11,6 +11,7 @@ class BookRepository @Inject constructor(private val dao: BookDao) {
     val allBooks: Flow<List<Book>> = dao.getAllBooks()
     val favorites: Flow<List<Book>> = dao.getFavorites()
     val recentlyAdded: Flow<List<Book>> = dao.getRecentlyAdded()
+    val readingHistory: Flow<List<Book>> = dao.getReadingHistory()
 
     fun search(q: String): Flow<List<Book>> = dao.searchBooks(q)
     suspend fun getById(id: Long): Book? = dao.getById(id)

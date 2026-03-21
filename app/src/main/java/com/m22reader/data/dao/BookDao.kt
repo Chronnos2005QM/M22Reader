@@ -15,6 +15,9 @@ interface BookDao {
     @Query("SELECT * FROM books WHERE recentlyAdded = 1 ORDER BY addedAt DESC")
     fun getRecentlyAdded(): Flow<List<Book>>
 
+    @Query("SELECT * FROM books WHERE lastReadAt IS NOT NULL ORDER BY lastReadAt DESC")
+    fun getReadingHistory(): Flow<List<Book>>
+
     @Query("SELECT * FROM books WHERE title LIKE '%' || :q || '%'")
     fun searchBooks(q: String): Flow<List<Book>>
 
