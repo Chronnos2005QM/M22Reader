@@ -8,7 +8,7 @@ import java.util.Date
 data class Book(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val title: String,
-    val author: String? = null,
+    val author: String = "Desconhecido",
     val filePath: String,
     val coverPath: String? = null,
     val format: BookFormat,
